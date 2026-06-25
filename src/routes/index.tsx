@@ -1,317 +1,179 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import {
-  ArrowRight, Play, TrendingUp, Brain, Palette, Rocket,
-  Sparkles, Zap, Activity, Globe, ShoppingBag, Clock,
-} from "lucide-react";
-import { WorkflowVisual } from "@/components/landing/WorkflowVisual";
-import { LiveActivity } from "@/components/landing/LiveActivity";
-import { ParticleField } from "@/components/landing/ParticleField";
-import { Counter } from "@/components/landing/Counter";
-import product1 from "@/assets/product-1.jpg";
-import product2 from "@/assets/product-2.jpg";
-import product3 from "@/assets/product-3.jpg";
-import product4 from "@/assets/product-4.jpg";
+import { ArrowRight } from "lucide-react";
+import { ProductCard } from "@/components/store/ProductCard";
+import { Countdown } from "@/components/store/Countdown";
+import { useProducts } from "@/lib/queries";
+import { formatPrice, productImage } from "@/lib/products";
+import heroImg from "@/assets/hero.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Pixellato — The Internet's First Autonomous AI Merchandise Store" },
-      { name: "description", content: "Pixellato continuously discovers trending topics across the internet and automatically designs, generates and publishes unique products every 15 minutes." },
-      { property: "og:title", content: "Pixellato — Autonomous AI Merchandise Store" },
-      { property: "og:description", content: "Trends in. Products out. Every 15 minutes — fully autonomous." },
+      { title: "Pixellato — Limited Drops. Timeless Design." },
+      { name: "description", content: "Discover exclusive merchandise released on a schedule. Once they're gone, they're gone." },
     ],
   }),
-  component: Landing,
+  component: Home,
 });
 
-const products = [
-  { img: product1, title: "Neon Agent Tee", slogan: "I, for one, welcome our AI overlords.", trend: "AI Agents", time: "3 min ago", price: "$32" },
-  { img: product2, title: "Geometric Hoodie", slogan: "Compiled in the cloud, worn on earth.", trend: "Quantum Design", time: "11 min ago", price: "$68" },
-  { img: product3, title: "Circuit Mug", slogan: "Powered by caffeine & tokens.", trend: "Dev Culture", time: "18 min ago", price: "$22" },
-  { img: product4, title: "Pixel Cap", slogan: "All systems nominal.", trend: "Streetwear AI", time: "26 min ago", price: "$28" },
-];
+function Home() {
+  const { data: products = [] } = useProducts();
+  const featured = products.filter((p) => p.featured && p.status === "live").slice(0, 4);
+  const upcoming = products.filter((p) => p.status === "upcoming").slice(0, 3);
+  const featuredHero = products.find((p) => p.featured) ?? products[0];
 
-const steps = [
-  { icon: TrendingUp, title: "Trend Discovery", desc: "Continuously analyses internet trends across social, news, and search.", color: "var(--neon-cyan)" },
-  { icon: Brain, title: "AI Product Creation", desc: "Generates names, slogans and descriptions calibrated to each trend.", color: "var(--neon-blue)" },
-  { icon: Palette, title: "AI Artwork", desc: "Creates original product artwork ready for print and publish.", color: "var(--neon-purple)" },
-  { icon: Rocket, title: "Autonomous Publishing", desc: "Publishes products end-to-end with zero human input.", color: "var(--neon-pink)" },
-];
-
-const metrics = [
-  { icon: Activity, label: "Trends Analysed Today", value: 14823, suffix: "" },
-  { icon: Sparkles, label: "Products Generated", value: 9617, suffix: "" },
-  { icon: Brain, label: "AI Agents Running", value: 42, suffix: "" },
-  { icon: ShoppingBag, label: "Products Published", value: 7488, suffix: "" },
-  { icon: Clock, label: "Avg Generation Time", value: 14.6, suffix: "s", decimals: 1 },
-];
-
-function Landing() {
   return (
-    <div className="relative min-h-screen overflow-x-hidden" style={{ background: "#060608" }}>
-      {/* Ambient backgrounds */}
-      <div className="pointer-events-none fixed inset-0 grid-bg opacity-40 animate-grid-pan" />
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute -top-40 -left-40 h-[40rem] w-[40rem] rounded-full opacity-30 blur-3xl"
-          style={{ background: "radial-gradient(circle, var(--neon-purple), transparent 60%)" }} />
-        <div className="absolute top-1/3 -right-40 h-[40rem] w-[40rem] rounded-full opacity-25 blur-3xl"
-          style={{ background: "radial-gradient(circle, var(--neon-cyan), transparent 60%)" }} />
-        <div className="absolute bottom-0 left-1/3 h-[30rem] w-[30rem] rounded-full opacity-20 blur-3xl"
-          style={{ background: "radial-gradient(circle, var(--neon-blue), transparent 60%)" }} />
-      </div>
-
-      {/* Nav */}
-      <header className="relative z-30">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg glass-strong flex items-center justify-center glow-purple">
-              <Sparkles className="h-4 w-4" style={{ color: "var(--neon-cyan)" }} />
-            </div>
-            <span className="font-display text-lg font-semibold tracking-tight">Pixellato</span>
-          </div>
-          <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-            <a href="#drops" className="hover:text-foreground transition">Drops</a>
-            <a href="#how" className="hover:text-foreground transition">How it works</a>
-            <a href="#metrics" className="hover:text-foreground transition">Metrics</a>
-          </div>
-          <button className="glass rounded-full px-4 py-2 text-sm font-medium hover:bg-white/5 transition">
-            Open Store
-          </button>
-        </nav>
-      </header>
-
+    <>
       {/* HERO */}
-      <section className="relative z-10">
-        <ParticleField />
-        <div className="mx-auto max-w-7xl px-6 pt-12 pb-24 md:pt-20 md:pb-32 grid lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <motion.div
-              initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-2 glass rounded-full px-3 py-1.5 mb-6"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-neon-cyan animate-pulse" />
-              <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-                Autonomous · Online · Generating Now
-              </span>
-            </motion.div>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.05 }}
-              className="font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.05] tracking-tight"
-            >
-              The Internet's First{" "}
-              <span className="text-gradient-primary">Autonomous AI</span>{" "}
-              Merchandise Store
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.15 }}
-              className="mt-6 text-lg text-muted-foreground max-w-xl leading-relaxed"
-            >
-              Pixellato continuously discovers trending topics across the internet and automatically
-              designs, generates and publishes unique products every 15 minutes.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.25 }}
-              className="mt-8 flex flex-wrap items-center gap-3"
-            >
-              <a href="#drops" className="group relative inline-flex items-center gap-2 rounded-full px-6 py-3 font-medium text-primary-foreground overflow-hidden"
-                style={{ background: "var(--gradient-hero)", boxShadow: "var(--shadow-glow-purple)" }}>
-                <span className="relative z-10">Browse Latest Drops</span>
-                <ArrowRight className="relative z-10 h-4 w-4 transition group-hover:translate-x-0.5" />
-              </a>
-              <a href="#how" className="glass inline-flex items-center gap-2 rounded-full px-6 py-3 font-medium hover:bg-white/5 transition">
-                <Play className="h-4 w-4" />
-                See How It Works
-              </a>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.4 }}
-              className="mt-10"
-            >
-              <LiveActivity />
-            </motion.div>
-          </div>
-
+      <section className="relative">
+        <div className="mx-auto max-w-7xl px-6 pt-16 pb-6 md:pt-24">
           <motion.div
-            initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, delay: 0.2 }}
-            className="relative"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            className="max-w-4xl"
           >
-            <WorkflowVisual />
+            <h1 className="text-5xl font-semibold tracking-tight text-foreground sm:text-6xl md:text-7xl lg:text-[88px] lg:leading-[0.98]">
+              Limited Drops.
+              <br />
+              <span className="text-muted-foreground">Timeless Design.</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-lg text-muted-foreground">
+              Discover exclusive merchandise released on a schedule. Once they're gone, they're gone.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                to="/shop"
+                className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-transform hover:scale-[1.02]"
+              >
+                Shop Now <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/drops"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted"
+              >
+                Upcoming Drops
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Hero featured image */}
+        <div className="mx-auto max-w-7xl px-6 pb-16 md:pb-24">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            className="relative mt-10 overflow-hidden rounded-3xl bg-surface-muted"
+          >
+            <div className="grid items-center gap-8 p-8 md:grid-cols-2 md:p-16">
+              <div>
+                <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Featured Drop</div>
+                {featuredHero && (
+                  <>
+                    <h2 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">{featuredHero.title}</h2>
+                    <p className="mt-4 max-w-md text-muted-foreground">{featuredHero.description}</p>
+                    <div className="mt-6 text-2xl font-medium tabular-nums">{formatPrice(Number(featuredHero.price))}</div>
+                    <Link
+                      to="/products/$slug"
+                      params={{ slug: featuredHero.slug }}
+                      className="mt-8 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background"
+                    >
+                      View Product <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </>
+                )}
+              </div>
+              <motion.div
+                initial={{ y: 24, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 1, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="relative aspect-[5/4] overflow-hidden rounded-2xl bg-background"
+              >
+                <img
+                  src={featuredHero ? productImage(featuredHero.slug, featuredHero.image_url) : heroImg}
+                  alt={featuredHero?.title ?? "Pixellato"}
+                  width={1280}
+                  height={1024}
+                  className="h-full w-full object-cover"
+                />
+              </motion.div>
+            </div>
           </motion.div>
         </div>
       </section>
 
-      {/* LATEST DROPS */}
-      <section id="drops" className="relative z-10 py-24 md:py-32">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex items-end justify-between flex-wrap gap-4 mb-12">
+      {/* FEATURED PRODUCTS */}
+      <section className="border-t border-border bg-background">
+        <div className="mx-auto max-w-7xl px-6 py-20 md:py-28">
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
-                / Drops · auto-refresh every 15 min
-              </div>
-              <h2 className="font-display text-4xl md:text-5xl font-bold">Latest AI Drops</h2>
+              <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Shop</div>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">Featured Products</h2>
             </div>
-            <div className="glass rounded-full px-4 py-2 text-sm flex items-center gap-2">
-              <Zap className="h-3.5 w-3.5" style={{ color: "var(--neon-cyan)" }} />
-              <span className="text-muted-foreground">Next drop in</span>
-              <span className="font-mono">04:12</span>
-            </div>
+            <Link to="/shop" className="text-sm font-medium underline-offset-4 hover:underline">View all</Link>
           </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.map((p, i) => (
-              <motion.article
-                key={p.title}
-                initial={{ opacity: 0, y: 28 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.6, delay: i * 0.08 }}
-                whileHover={{ y: -6 }}
-                className="group relative glass rounded-2xl overflow-hidden transition"
-              >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition pointer-events-none"
-                  style={{ background: "radial-gradient(circle at 50% 0%, color-mix(in oklch, var(--neon-purple) 25%, transparent), transparent 60%)" }} />
-                <div className="relative aspect-square overflow-hidden">
-                  <img src={p.img} alt={p.title} loading="lazy" width={1024} height={1024}
-                    className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
-                  <div className="absolute top-3 left-3 glass rounded-full px-2.5 py-1 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider">
-                    <TrendingUp className="h-3 w-3" style={{ color: "var(--neon-cyan)" }} />
-                    {p.trend}
-                  </div>
-                  <div className="absolute top-3 right-3 glass rounded-full px-2.5 py-1 text-[10px] font-mono text-muted-foreground">
-                    {p.time}
-                  </div>
-                </div>
-                <div className="p-5">
-                  <h3 className="font-display text-lg font-semibold">{p.title}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground italic line-clamp-2">"{p.slogan}"</p>
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="font-mono text-lg text-gradient-primary font-semibold">{p.price}</span>
-                    <button className="text-xs font-medium rounded-full px-3 py-1.5 border border-white/10 hover:border-white/30 hover:bg-white/5 transition">
-                      View
-                    </button>
-                  </div>
-                </div>
-              </motion.article>
+          <div className="mt-12 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+            {featured.map((p, i) => (
+              <ProductCard key={p.id} product={p} index={i} />
             ))}
           </div>
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
-      <section id="how" className="relative z-10 py-24 md:py-32">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">/ The Loop</div>
-            <h2 className="font-display text-4xl md:text-5xl font-bold">How Pixellato Works</h2>
-            <p className="mt-4 text-muted-foreground">
-              A closed loop of four autonomous agents — running 24/7, without a human in sight.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {steps.map((s, i) => {
-              const Icon = s.icon;
-              return (
+      {/* UPCOMING */}
+      {upcoming.length > 0 && (
+        <section className="border-t border-border bg-surface-muted/40">
+          <div className="mx-auto max-w-7xl px-6 py-20 md:py-28">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Coming Soon</div>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">Upcoming Drops</h2>
+              </div>
+              <Link to="/drops" className="text-sm font-medium underline-offset-4 hover:underline">All drops</Link>
+            </div>
+            <div className="mt-12 grid gap-6 md:grid-cols-3">
+              {upcoming.map((p, i) => (
                 <motion.div
-                  key={s.title}
-                  initial={{ opacity: 0, y: 24 }}
+                  key={p.id}
+                  initial={{ opacity: 0, y: 12 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-60px" }}
-                  transition={{ duration: 0.6, delay: i * 0.08 }}
-                  className="group relative glass rounded-2xl p-6 hover:bg-white/[0.03] transition"
+                  transition={{ duration: 0.5, delay: i * 0.06 }}
+                  className="overflow-hidden rounded-2xl bg-background shadow-soft"
                 >
-                  <div className="text-xs font-mono text-muted-foreground mb-4">0{i + 1}</div>
-                  <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-5 transition group-hover:scale-110"
-                    style={{
-                      background: `color-mix(in oklch, ${s.color} 14%, transparent)`,
-                      border: `1px solid color-mix(in oklch, ${s.color} 35%, transparent)`,
-                      boxShadow: `0 0 24px color-mix(in oklch, ${s.color} 25%, transparent)`,
-                    }}>
-                    <Icon className="h-5 w-5" style={{ color: s.color }} />
-                  </div>
-                  <h3 className="font-display text-lg font-semibold mb-2">{s.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
+                  <Link to="/products/$slug" params={{ slug: p.slug }} className="block group">
+                    <div className="aspect-[4/5] overflow-hidden bg-surface-muted">
+                      <img
+                        src={productImage(p.slug, p.image_url)}
+                        alt={p.title}
+                        loading="lazy"
+                        width={1280}
+                        height={1600}
+                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                      />
+                    </div>
+                    <div className="p-6">
+                      <div className="text-xs uppercase tracking-widest text-muted-foreground">Releases in</div>
+                      <div className="mt-3">
+                        {p.release_time && <Countdown to={p.release_time} />}
+                      </div>
+                      <div className="mt-6 flex items-end justify-between">
+                        <div>
+                          <h3 className="text-lg font-medium">{p.title}</h3>
+                          <div className="mt-1 text-sm text-muted-foreground">{formatPrice(Number(p.price))}</div>
+                        </div>
+                        <span className="rounded-full border border-border px-3 py-1.5 text-xs font-medium">Notify me</span>
+                      </div>
+                    </div>
+                  </Link>
                 </motion.div>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
-
-      {/* METRICS */}
-      <section id="metrics" className="relative z-10 py-24 md:py-32">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <div className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">/ Realtime Telemetry</div>
-            <h2 className="font-display text-4xl md:text-5xl font-bold">
-              The machine is <span className="text-gradient-primary">always on</span>
-            </h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-5">
-            {metrics.map((m, i) => {
-              const Icon = m.icon;
-              return (
-                <motion.div
-                  key={m.label}
-                  initial={{ opacity: 0, y: 22 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-60px" }}
-                  transition={{ duration: 0.6, delay: i * 0.08 }}
-                  className="relative glass-strong rounded-2xl p-6 overflow-hidden"
-                >
-                  <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full opacity-30 blur-2xl"
-                    style={{ background: "var(--gradient-hero)" }} />
-                  <Icon className="relative h-5 w-5 mb-4 text-muted-foreground" />
-                  <div className="relative">
-                    <Counter to={m.value} suffix={m.suffix} decimals={m.decimals ?? 0} />
-                  </div>
-                  <div className="relative mt-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
-                    {m.label}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="relative z-10 py-24">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="relative glass-strong rounded-3xl p-12 md:p-16 overflow-hidden text-center">
-            <div className="absolute inset-0 opacity-40 pointer-events-none"
-              style={{ background: "radial-gradient(circle at 50% 0%, var(--neon-purple), transparent 60%)" }} />
-            <Globe className="relative h-10 w-10 mx-auto mb-6" style={{ color: "var(--neon-cyan)" }} />
-            <h2 className="relative font-display text-4xl md:text-5xl font-bold">
-              Step inside the <span className="text-gradient-primary">autonomous store</span>
-            </h2>
-            <p className="relative mt-4 text-muted-foreground max-w-xl mx-auto">
-              Every fifteen minutes, a new product. Designed, written, illustrated and shipped — by no one.
-            </p>
-            <a href="#drops" className="relative mt-8 inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-medium text-primary-foreground"
-              style={{ background: "var(--gradient-hero)", boxShadow: "var(--shadow-glow-purple)" }}>
-              Browse Latest Drops <ArrowRight className="h-4 w-4" />
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <footer className="relative z-10 border-t border-white/5 mt-12">
-        <div className="mx-auto max-w-7xl px-6 py-10 flex flex-wrap justify-between items-center gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" style={{ color: "var(--neon-cyan)" }} />
-            <span className="font-display text-foreground">Pixellato</span>
-            <span>· Autonomous since 2026</span>
-          </div>
-          <div className="font-mono text-xs">© Pixellato · All artwork AI-generated</div>
-        </div>
-      </footer>
-    </div>
+        </section>
+      )}
+    </>
   );
 }
