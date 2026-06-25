@@ -34,6 +34,7 @@ export function ProductsRealtimeSync() {
       .channel("products-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
         queryClient.invalidateQueries({ queryKey: ["products"] });
+        queryClient.invalidateQueries({ queryKey: ["shop_config"] });
       })
       .subscribe();
     setProductsRealtimeChannel(channel);
@@ -76,12 +77,18 @@ export function useShopConfig() {
   });
 }
 
-/** When the next autonomous drop is expected: last run + interval. */
+/** When the next autonomous drop is expected. Rolls forward if the last window already passed. */
 export function nextDropAt(config: ShopConfig | null | undefined): Date | null {
   if (!config?.last_run_at) return null;
-  const base = new Date(config.last_run_at).getTime();
-  const interval = (config.generation_interval_minutes || 5) * 60_000;
-  return new Date(base + interval);
+  const intervalMs = (config.generation_interval_minutes || 5) * 60_000;
+  const lastRun = new Date(config.last_run_at).getTime();
+  let next = lastRun + intervalMs;
+  const now = Date.now();
+  if (next <= now) {
+    const missed = Math.floor((now - next) / intervalMs) + 1;
+    next += missed * intervalMs;
+  }
+  return new Date(next);
 }
 
 export function useProductBySlug(slug: string) {

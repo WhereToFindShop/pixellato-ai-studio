@@ -13,6 +13,7 @@ const ENDPOINT = (key: string) =>
 export async function forgeDesign(
   trend: Trend,
   copy: DropCopy,
+  dropSeed = "",
 ): Promise<{ bytes: Uint8Array; contentType: string } | null> {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) {
@@ -25,7 +26,7 @@ export async function forgeDesign(
     `"${copy.slogan}". Retro pixel-art style, vivid high-contrast colors, thick clean ` +
     `outline, centered composition. Place it on a flat, perfectly uniform solid-color ` +
     `background — no texture, no gradient, no drop shadow, no product, no people, no mockup. ` +
-    `Square image.`;
+    `Square image. Creative variation ${dropSeed.slice(-6)}.`;
 
   let res: Response;
   try {
