@@ -22,7 +22,7 @@ export type Trend = {
 };
 
 // A drop = one trend branded across these four items.
-export type ProductType = "tshirt" | "mug" | "bottle" | "hat";
+export type ProductType = "tshirt" | "tote" | "mug" | "cap";
 
 // Drop-level copy, shared by all four items in the drop.
 export type DropCopy = {

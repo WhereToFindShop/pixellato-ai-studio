@@ -8,6 +8,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { discoverTrends } from "./trend-discovery.ts";
 import { craftDropCopy } from "./copy-crafter.ts";
 import { forgePixelArt } from "./pixel-forge.ts";
+import { forgeDesign } from "./design-forge.ts";
+import { compositeOnMockup } from "./mockup-forge.ts";
 import type { ProductType, Trend } from "./types.ts";
 
 const BUCKET = "product-images";
@@ -15,9 +17,9 @@ const MIN_SECONDS_BETWEEN_RUNS = 30;
 
 const ITEMS: Array<{ type: ProductType; label: string; priceCents: number }> = [
   { type: "tshirt", label: "Tee", priceCents: 2499 },
+  { type: "tote", label: "Tote", priceCents: 2299 },
   { type: "mug", label: "Mug", priceCents: 1999 },
-  { type: "bottle", label: "Bottle", priceCents: 2299 },
-  { type: "hat", label: "Cap", priceCents: 2199 },
+  { type: "cap", label: "Cap", priceCents: 2199 },
 ];
 
 function slugify(s: string): string {
@@ -132,17 +134,46 @@ Deno.serve(async () => {
     const base = slugify(chosen.keyword);
     const suffix = Date.now().toString(36).slice(-4);
 
+    // One Higgsfield design per drop, branded onto every item's baseline mockup.
+    // null => fall back to the procedural SVG generator (loop never breaks).
+    const design = await forgeDesign(chosen, copy);
+    const forgePath = design ? "higgsfield" : "svg-fallback";
+
     const rows: Record<string, unknown>[] = [];
     const images: string[] = [];
     for (const item of ITEMS) {
       const slug = `${base}-${item.type}-${suffix}`;
-      const forged = forgePixelArt(chosen, copy.slogan, item.type, slug);
-      const bytes = new TextEncoder().encode(forged.svg);
+
+      let bytes: Uint8Array;
+      let contentType: string;
+      let storagePath: string;
+      let palette: string[] = [];
+
+      let composed = false;
+      if (design) {
+        try {
+          const m = await compositeOnMockup(design.url, item.type, slug);
+          bytes = m.bytes;
+          contentType = m.contentType;
+          storagePath = m.storagePath;
+          composed = true;
+        } catch (e) {
+          console.error(`[run-pipeline] composite (${item.type}) failed, SVG fallback:`, e instanceof Error ? e.message : e);
+        }
+      }
+      if (!composed) {
+        const forged = forgePixelArt(chosen, copy.slogan, item.type, slug);
+        bytes = new TextEncoder().encode(forged.svg);
+        contentType = "image/svg+xml";
+        storagePath = forged.storagePath;
+        palette = forged.palette;
+      }
+
       const { error: upErr } = await admin.storage
         .from(BUCKET)
-        .upload(forged.storagePath, bytes, { contentType: "image/svg+xml", upsert: true });
+        .upload(storagePath!, bytes!, { contentType: contentType!, upsert: true });
       if (upErr) throw new Error(`storage upload (${item.type}): ${upErr.message}`);
-      const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(forged.storagePath);
+      const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(storagePath!);
       images.push(pub.publicUrl);
       rows.push({
         generation_run_id: runId,
@@ -155,8 +186,8 @@ Deno.serve(async () => {
         product_type: item.type,
         category: item.type,
         image_url: pub.publicUrl,
-        image_storage_path: forged.storagePath,
-        pixel_palette: forged.palette,
+        image_storage_path: storagePath!,
+        pixel_palette: palette,
         price_cents: item.priceCents,
         price: Number((item.priceCents / 100).toFixed(2)),
         currency: "USD",
@@ -174,7 +205,7 @@ Deno.serve(async () => {
       generation_run_id: runId,
       agent_name: "pixel_forge",
       input: { items: ITEMS.map((i) => i.type) },
-      output: { images },
+      output: { images, path: forgePath, design_url: design?.url ?? null },
       duration_ms: Date.now() - forgeStart,
     });
 

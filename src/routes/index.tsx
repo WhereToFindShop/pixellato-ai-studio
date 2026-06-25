@@ -120,7 +120,7 @@ function Home() {
             <div>
               <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Available Now</div>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">This Drop</h2>
-              <p className="mt-2 text-sm text-muted-foreground">One trend, four pieces — a tee, a mug, a bottle and a cap.</p>
+              <p className="mt-2 text-sm text-muted-foreground">One trend, four pieces — a tee, a tote, a mug and a cap.</p>
             </div>
             <Link to="/shop" className="text-sm font-medium underline-offset-4 hover:underline">View all</Link>
           </div>

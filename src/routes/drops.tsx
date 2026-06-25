@@ -17,7 +17,7 @@ export const Route = createFileRoute("/drops")({
 
 const STEPS = [
   { icon: Radar, title: "Trend Scout", body: "Agents scan Hacker News, Lobste.rs and tech news for whatever the internet is obsessed with." },
-  { icon: Sparkles, title: "Forge", body: "The winning trend is branded into a tee, a mug, a bottle and a cap — pixel art and all." },
+  { icon: Sparkles, title: "Forge", body: "The winning trend is branded onto a tee, a tote, a mug and a cap — pixel art and all." },
   { icon: Trash2, title: "Overwrite", body: "The moment it goes live, the previous drop is wiped — products and artwork, gone for good." },
 ];
 
