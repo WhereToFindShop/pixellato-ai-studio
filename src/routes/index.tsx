@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { ProductCard } from "@/components/store/ProductCard";
@@ -19,10 +18,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const queryClient = useQueryClient();
   const { data: products = [] } = useProducts();
   const { data: config } = useShopConfig();
-  const refreshDropSchedule = () => queryClient.invalidateQueries({ queryKey: ["shop_config"] });
 
   // The current drop = everything live right now (the pipeline keeps only one drop live).
   const drop = products.filter((p) => p.status === "live");
@@ -161,7 +158,7 @@ function Home() {
               <div className="rounded-2xl border border-border bg-surface-muted/60 p-8 text-center">
                 <div className="text-xs uppercase tracking-widest text-muted-foreground">Next drop in</div>
                 <div className="mt-4 flex justify-center">
-                  {next ? <Countdown to={next} onElapsed={refreshDropSchedule} /> : <span className="text-sm text-muted-foreground">Calibrating…</span>}
+                  {next ? <Countdown to={next} /> : <span className="text-sm text-muted-foreground">Calibrating…</span>}
                 </div>
               </div>
             </div>

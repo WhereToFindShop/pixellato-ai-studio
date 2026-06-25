@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 function diff(target: number) {
   const ms = Math.max(0, target - Date.now());
@@ -9,35 +9,14 @@ function diff(target: number) {
   return { d, h, m, s, done: ms === 0 };
 }
 
-export function Countdown({
-  to,
-  compact = false,
-  onElapsed,
-}: {
-  to: string | Date;
-  compact?: boolean;
-  /** Fired once when the target time is reached — use to refetch shop_config. */
-  onElapsed?: () => void;
-}) {
+export function Countdown({ to, compact = false }: { to: string | Date; compact?: boolean }) {
   const target = typeof to === "string" ? new Date(to).getTime() : to.getTime();
   const [t, setT] = useState(() => diff(target));
-  const elapsedRef = useRef(false);
-
-  useEffect(() => {
-    elapsedRef.current = false;
-  }, [target]);
 
   useEffect(() => {
     const i = window.setInterval(() => setT(diff(target)), 1000);
     return () => window.clearInterval(i);
   }, [target]);
-
-  useEffect(() => {
-    if (t.done && !elapsedRef.current) {
-      elapsedRef.current = true;
-      onElapsed?.();
-    }
-  }, [t.done, onElapsed]);
 
   if (t.done) return <span className="text-sm text-muted-foreground">Released</span>;
 

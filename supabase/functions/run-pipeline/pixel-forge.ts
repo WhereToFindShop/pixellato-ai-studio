@@ -47,9 +47,8 @@ export function forgePixelArt(
   slogan: string,
   productType: ProductType,
   slug: string,
-  dropSeed = "",
 ): ForgeResult {
-  const rng = mulberry32(hashString(trend.keyword + productType + dropSeed));
+  const rng = mulberry32(hashString(trend.keyword + productType));
   const cell = (SIZE - PAD * 2) / GRID;
 
   const cA = PALETTE[Math.floor(rng() * PALETTE.length)];

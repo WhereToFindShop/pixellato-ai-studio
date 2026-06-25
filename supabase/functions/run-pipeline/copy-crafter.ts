@@ -65,8 +65,8 @@ function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
-export function craftDropCopy(trend: Trend, dropSeed = ""): DropCopy {
-  const rng = mulberry32(hashString(trend.keyword + trend.id + dropSeed));
+export function craftDropCopy(trend: Trend): DropCopy {
+  const rng = mulberry32(hashString(trend.keyword + trend.id));
   const k = trend.keyword;
   return {
     theme: pick(THEME_TEMPLATES, rng)(k),

@@ -54,31 +54,23 @@ Deno.serve(async () => {
 
   let runId: string | undefined;
   try {
-    // 1) Trend Scout — pick a trend, skipping recently used terms (not just the last one).
+    // 1) Trend Scout — pick a trend, avoiding an immediate repeat of the last drop.
     const trends = await discoverTrends();
     if (trends.length === 0) return json({ ok: false, error: "no trends discovered" }, 502);
 
-    const RECENT_DROP_LIMIT = 8;
-    const { data: recentRuns } = await admin
+    let lastTerm: string | null = null;
+    const { data: lastRun } = await admin
       .from("generation_runs")
       .select("trend_id")
       .eq("status", "published")
       .order("created_at", { ascending: false })
-      .limit(RECENT_DROP_LIMIT);
-
-    const recentTerms = new Set<string>();
-    if (recentRuns?.length) {
-      const trendIds = [...new Set(recentRuns.map((r) => r.trend_id).filter(Boolean))] as string[];
-      if (trendIds.length > 0) {
-        const { data: recentTrendRows } = await admin.from("trends").select("term").in("id", trendIds);
-        for (const row of recentTrendRows ?? []) recentTerms.add(row.term);
-      }
+      .limit(1)
+      .maybeSingle();
+    if (lastRun?.trend_id) {
+      const { data: t } = await admin.from("trends").select("term").eq("id", lastRun.trend_id).maybeSingle();
+      lastTerm = t?.term ?? null;
     }
-
-    const eligible = trends.filter((t) => !recentTerms.has(t.keyword));
-    const pool = eligible.length > 0 ? eligible : trends;
-    // Random pick among the top few eligible trends — avoids ping-pong between two sticky headlines.
-    const chosen: Trend = pool[Math.floor(Math.random() * Math.min(4, pool.length))] ?? pool[0];
+    const chosen: Trend = trends.find((t) => t.keyword !== lastTerm) ?? trends[0];
 
     const { data: trendRow, error: trendErr } = await admin
       .from("trends")
@@ -116,7 +108,6 @@ Deno.serve(async () => {
       .single();
     if (runErr) throw new Error(`run insert: ${runErr.message}`);
     runId = runRow.id as string;
-    const dropSeed = `${runId}-${Date.now().toString(36).slice(-4)}`;
 
     await admin.from("agent_logs").insert({
       generation_run_id: runId,
@@ -127,7 +118,7 @@ Deno.serve(async () => {
 
     // 2) Copy Crafter — one shared theme for the whole drop.
     const copyStart = Date.now();
-    const copy = craftDropCopy(chosen, dropSeed);
+    const copy = craftDropCopy(chosen);
     await admin.from("generation_runs").update({ status: "copy_crafter" }).eq("id", runId);
     await admin.from("agent_logs").insert({
       generation_run_id: runId,
@@ -143,7 +134,9 @@ Deno.serve(async () => {
     const base = slugify(chosen.keyword);
     const suffix = Date.now().toString(36).slice(-4);
 
-    const design = await forgeDesign(chosen, copy, dropSeed);
+    // One Gemini design per drop, branded onto every item's baseline mockup.
+    // null => fall back to the procedural SVG generator (loop never breaks).
+    const design = await forgeDesign(chosen, copy);
     const forgePath = design ? "gemini" : "svg-fallback";
 
     const rows: Record<string, unknown>[] = [];
@@ -169,7 +162,7 @@ Deno.serve(async () => {
         }
       }
       if (!composed) {
-        const forged = forgePixelArt(chosen, copy.slogan, item.type, slug, dropSeed);
+        const forged = forgePixelArt(chosen, copy.slogan, item.type, slug);
         bytes = new TextEncoder().encode(forged.svg);
         contentType = "image/svg+xml";
         storagePath = forged.storagePath;

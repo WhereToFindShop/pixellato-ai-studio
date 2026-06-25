@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ArrowRight, Bell, Radar, Sparkles, Trash2 } from "lucide-react";
 import { Countdown } from "@/components/store/Countdown";
@@ -23,12 +22,10 @@ const STEPS = [
 ];
 
 function Drops() {
-  const queryClient = useQueryClient();
   const { data: products = [] } = useProducts();
   const { data: config } = useShopConfig();
   const next = nextDropAt(config);
   const current = products.filter((p) => p.status === "live");
-  const refreshDropSchedule = () => queryClient.invalidateQueries({ queryKey: ["shop_config"] });
 
   return (
     <section className="mx-auto max-w-7xl px-6 pt-16 pb-24 md:pt-24">
@@ -69,7 +66,7 @@ function Drops() {
           >
             <div className="text-xs uppercase tracking-widest text-muted-foreground">Dropping in</div>
             <div className="mt-6 flex justify-center">
-              {next ? <Countdown to={next} onElapsed={refreshDropSchedule} /> : <span className="text-sm text-muted-foreground">Calibrating…</span>}
+              {next ? <Countdown to={next} /> : <span className="text-sm text-muted-foreground">Calibrating…</span>}
             </div>
             <p className="mt-6 text-xs text-muted-foreground">
               New drop every {config?.generation_interval_minutes ?? 5} minutes · fully autonomous
