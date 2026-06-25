@@ -35,3 +35,4 @@ dist-ssr
 # Supabase local / CLI artifacts
 supabase/.temp/
 supabase/.branches/
+.vercel

@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Product, ProductVariant } from "@/lib/products";
 import { useEffect } from "react";
@@ -12,19 +13,34 @@ async function fetchProducts(): Promise<Product[]> {
   return (data ?? []) as Product[];
 }
 
+const PRODUCTS_RT_KEY = "__pixellatoProductsRealtime";
+
+function getProductsRealtimeChannel(): RealtimeChannel | undefined {
+  return (globalThis as typeof globalThis & { [PRODUCTS_RT_KEY]?: RealtimeChannel })[PRODUCTS_RT_KEY];
+}
+
+function setProductsRealtimeChannel(channel: RealtimeChannel | undefined) {
+  (globalThis as typeof globalThis & { [PRODUCTS_RT_KEY]?: RealtimeChannel })[PRODUCTS_RT_KEY] = channel;
+}
+
 /** Mount once at app root — avoids duplicate Supabase channels when queries.ts is code-split. */
 export function ProductsRealtimeSync() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (getProductsRealtimeChannel()) return;
+
     const channel = supabase
       .channel("products-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
         queryClient.invalidateQueries({ queryKey: ["products"] });
       })
       .subscribe();
+    setProductsRealtimeChannel(channel);
+
     return () => {
       supabase.removeChannel(channel);
+      setProductsRealtimeChannel(undefined);
     };
   }, [queryClient]);
 
