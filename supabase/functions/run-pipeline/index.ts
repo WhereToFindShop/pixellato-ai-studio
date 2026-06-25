@@ -1,5 +1,5 @@
 // run-pipeline — Pixellato's autonomous drop factory.
-// One run = one trend branded across 4 items (tee, mug, bottle, hat) = one drop.
+// One run = one trend branded across 4 items (tee, tote, mug, cap) = one drop.
 // Each new drop hard-replaces the previous drop's products + their Storage images.
 // Triggered by pg_cron (and callable manually).
 
@@ -134,10 +134,10 @@ Deno.serve(async () => {
     const base = slugify(chosen.keyword);
     const suffix = Date.now().toString(36).slice(-4);
 
-    // One Higgsfield design per drop, branded onto every item's baseline mockup.
+    // One Gemini design per drop, branded onto every item's baseline mockup.
     // null => fall back to the procedural SVG generator (loop never breaks).
     const design = await forgeDesign(chosen, copy);
-    const forgePath = design ? "higgsfield" : "svg-fallback";
+    const forgePath = design ? "gemini" : "svg-fallback";
 
     const rows: Record<string, unknown>[] = [];
     const images: string[] = [];
@@ -152,7 +152,7 @@ Deno.serve(async () => {
       let composed = false;
       if (design) {
         try {
-          const m = await compositeOnMockup(design.url, item.type, slug);
+          const m = await compositeOnMockup(design.bytes, item.type, slug);
           bytes = m.bytes;
           contentType = m.contentType;
           storagePath = m.storagePath;
@@ -205,7 +205,7 @@ Deno.serve(async () => {
       generation_run_id: runId,
       agent_name: "pixel_forge",
       input: { items: ITEMS.map((i) => i.type) },
-      output: { images, path: forgePath, design_url: design?.url ?? null },
+      output: { images, path: forgePath, design_model: design ? "gemini-2.5-flash-image" : null },
       duration_ms: Date.now() - forgeStart,
     });
 
