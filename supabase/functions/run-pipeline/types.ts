@@ -21,12 +21,12 @@ export type Trend = {
   shortContext: string;
 };
 
-export type ProductType = "tshirt" | "mug" | "sticker" | "poster";
+// A drop = one trend branded across these four items.
+export type ProductType = "tshirt" | "mug" | "bottle" | "hat";
 
-export type Copy = {
-  name: string;
+// Drop-level copy, shared by all four items in the drop.
+export type DropCopy = {
+  theme: string;
   slogan: string;
   description: string;
-  productType: ProductType;
-  priceCents: number;
 };

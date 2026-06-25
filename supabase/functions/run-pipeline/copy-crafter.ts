@@ -1,19 +1,10 @@
-// Copy Crafter (Agent 2) — turns a Trend into merch copy.
-// Deterministic, key-free: deadpan internet humor selected by a seeded PRNG so
-// output is varied but reproducible. Swap in an LLM later behind the same API.
+// Copy Crafter (Agent 2) — turns a Trend into one drop's shared copy.
+// Deterministic, key-free deadpan humor selected by a seeded PRNG. The four
+// items (tee/mug/bottle/hat) all share this theme so they read as one drop.
 
-import type { Copy, ProductType, Trend } from "./types.ts";
+import type { DropCopy, Trend } from "./types.ts";
 
-const PRICE_BY_TYPE: Record<ProductType, number> = {
-  tshirt: 2499,
-  mug: 1999,
-  poster: 1499,
-  sticker: 499,
-};
-
-const PRODUCT_TYPES: ProductType[] = ["tshirt", "mug", "sticker", "poster"];
-
-const NAME_TEMPLATES = [
+const THEME_TEMPLATES = [
   (k: string) => `I Survived ${title(k)}`,
   (k: string) => `${title(k)} Enjoyer`,
   (k: string) => `Powered by ${title(k)}`,
@@ -33,17 +24,17 @@ const SLOGAN_TEMPLATES = [
 ];
 
 const DESC_OPENERS = [
-  (k: string) => `The internet decided ${k.toLowerCase()} matters today, so here's the merch.`,
+  (k: string) => `The internet decided ${k.toLowerCase()} matters today, so here's the drop.`,
   (k: string) => `Born from a trending feed at an ungodly hour, this drop is all about ${k.toLowerCase()}.`,
-  (k: string) => `Nobody asked for ${k.toLowerCase()} merch. We made it anyway.`,
+  (k: string) => `Nobody asked for ${k.toLowerCase()} merch. We made a whole drop anyway.`,
   (k: string) => `Freshly pixelated from today's zeitgeist: ${k.toLowerCase()}.`,
 ];
 
 const DESC_CLOSERS = [
-  "Limited drop. Gone when the next trend hits.",
-  "Wear it ironically. Or don't. We're not your manager.",
-  "Self-aware merch for self-aware people.",
-  "Made by robots, judged by humans.",
+  "A tee, a mug, a bottle and a cap. Gone when the next trend hits.",
+  "Four pieces, one trend. Wear it ironically or don't — not your manager.",
+  "Self-aware merch for self-aware people. Limited drop.",
+  "Made by robots, judged by humans. Here until the next drop.",
 ];
 
 function title(s: string): string {
@@ -74,18 +65,12 @@ function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
-export function craftCopy(trend: Trend): Copy {
+export function craftDropCopy(trend: Trend): DropCopy {
   const rng = mulberry32(hashString(trend.keyword + trend.id));
-  const keyword = trend.keyword;
-  const productType = pick(PRODUCT_TYPES, rng);
-  const name = pick(NAME_TEMPLATES, rng)(keyword);
-  const slogan = pick(SLOGAN_TEMPLATES, rng)(keyword);
-  const description = `${pick(DESC_OPENERS, rng)(keyword)} ${pick(DESC_CLOSERS, rng)}`;
+  const k = trend.keyword;
   return {
-    name,
-    slogan,
-    description,
-    productType,
-    priceCents: PRICE_BY_TYPE[productType],
+    theme: pick(THEME_TEMPLATES, rng)(k),
+    slogan: pick(SLOGAN_TEMPLATES, rng)(k),
+    description: `${pick(DESC_OPENERS, rng)(k)} ${pick(DESC_CLOSERS, rng)}`,
   };
 }

@@ -14,7 +14,7 @@ export function Footer() {
           <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Shop</div>
           <ul className="mt-4 space-y-2 text-sm">
             <li><Link to="/shop" className="hover:underline">All Products</Link></li>
-            <li><Link to="/drops" className="hover:underline">Upcoming Drops</Link></li>
+            <li><Link to="/drops" className="hover:underline">Next Drop</Link></li>
           </ul>
         </div>
         <div>

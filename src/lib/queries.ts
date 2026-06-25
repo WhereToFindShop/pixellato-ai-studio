@@ -34,6 +34,36 @@ export function useProducts() {
   return query;
 }
 
+export type ShopConfig = {
+  shop_name: string | null;
+  generation_interval_minutes: number;
+  last_run_at: string | null;
+};
+
+export function useShopConfig() {
+  return useQuery({
+    queryKey: ["shop_config"],
+    refetchInterval: 20_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shop_config")
+        .select("shop_name, generation_interval_minutes, last_run_at")
+        .eq("id", 1)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as ShopConfig | null;
+    },
+  });
+}
+
+/** When the next autonomous drop is expected: last run + interval. */
+export function nextDropAt(config: ShopConfig | null | undefined): Date | null {
+  if (!config?.last_run_at) return null;
+  const base = new Date(config.last_run_at).getTime();
+  const interval = (config.generation_interval_minutes || 5) * 60_000;
+  return new Date(base + interval);
+}
+
 export function useProductBySlug(slug: string) {
   return useQuery({
     queryKey: ["product", slug],

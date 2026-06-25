@@ -1,79 +1,75 @@
 // run-pipeline — Pixellato's autonomous drop factory.
-// Trend Scout -> Copy Crafter -> Pixel Forge -> a live product "drop".
-// Triggered by pg_cron (and callable manually). Uses the service-role key that
-// Supabase injects into Edge Functions, so it can write past RLS.
+// One run = one trend branded across 4 items (tee, mug, bottle, hat) = one drop.
+// Each new drop hard-replaces the previous drop's products + their Storage images.
+// Triggered by pg_cron (and callable manually).
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { discoverTrends } from "./trend-discovery.ts";
-import { craftCopy } from "./copy-crafter.ts";
+import { craftDropCopy } from "./copy-crafter.ts";
 import { forgePixelArt } from "./pixel-forge.ts";
-import type { Trend } from "./types.ts";
+import type { ProductType, Trend } from "./types.ts";
 
 const BUCKET = "product-images";
-const RECENT_WINDOW_HOURS = 6;
-const MIN_SECONDS_BETWEEN_RUNS = 30; // throttle accidental/abusive double-fires
+const MIN_SECONDS_BETWEEN_RUNS = 30;
+
+const ITEMS: Array<{ type: ProductType; label: string; priceCents: number }> = [
+  { type: "tshirt", label: "Tee", priceCents: 2499 },
+  { type: "mug", label: "Mug", priceCents: 1999 },
+  { type: "bottle", label: "Bottle", priceCents: 2299 },
+  { type: "hat", label: "Cap", priceCents: 2199 },
+];
 
 function slugify(s: string): string {
   return s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 48) || "drop";
+    .slice(0, 40) || "drop";
 }
 
 function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
 Deno.serve(async () => {
   const url = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !serviceKey) {
-    return json({ ok: false, error: "Missing Supabase env in function runtime" }, 500);
-  }
-  const admin = createClient(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  if (!url || !serviceKey) return json({ ok: false, error: "Missing Supabase env in function runtime" }, 500);
+  const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  // Respect shop config: pause switch + lightweight throttle.
   const { data: config } = await admin
     .from("shop_config")
     .select("is_pipeline_enabled, last_run_at")
     .eq("id", 1)
     .maybeSingle();
 
-  if (config && config.is_pipeline_enabled === false) {
-    return json({ ok: true, skipped: "pipeline disabled" });
-  }
+  if (config && config.is_pipeline_enabled === false) return json({ ok: true, skipped: "pipeline disabled" });
   if (config?.last_run_at) {
     const elapsed = (Date.now() - new Date(config.last_run_at).getTime()) / 1000;
-    if (elapsed < MIN_SECONDS_BETWEEN_RUNS) {
-      return json({ ok: true, skipped: `throttled (${Math.round(elapsed)}s since last run)` });
-    }
+    if (elapsed < MIN_SECONDS_BETWEEN_RUNS) return json({ ok: true, skipped: `throttled (${Math.round(elapsed)}s)` });
   }
 
   let runId: string | undefined;
   try {
-    // 1) Trend Scout
+    // 1) Trend Scout — pick a trend, avoiding an immediate repeat of the last drop.
     const trends = await discoverTrends();
     if (trends.length === 0) return json({ ok: false, error: "no trends discovered" }, 502);
 
-    // Avoid re-dropping a keyword we already used recently.
-    const sinceIso = new Date(Date.now() - RECENT_WINDOW_HOURS * 3600 * 1000).toISOString();
-    const { data: recent } = await admin
-      .from("products")
-      .select("slug")
-      .gte("created_at", sinceIso);
-    const recentBases = new Set((recent ?? []).map((r: { slug: string }) => r.slug.replace(/-[a-z0-9]{1,5}$/, "")));
+    let lastTerm: string | null = null;
+    const { data: lastRun } = await admin
+      .from("generation_runs")
+      .select("trend_id")
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastRun?.trend_id) {
+      const { data: t } = await admin.from("trends").select("term").eq("id", lastRun.trend_id).maybeSingle();
+      lastTerm = t?.term ?? null;
+    }
+    const chosen: Trend = trends.find((t) => t.keyword !== lastTerm) ?? trends[0];
 
-    const chosen: Trend =
-      trends.find((t) => !recentBases.has(slugify(t.keyword))) ?? trends[0];
-
-    // Persist trends (chosen first so we can link it).
     const { data: trendRow, error: trendErr } = await admin
       .from("trends")
       .insert({
@@ -81,13 +77,7 @@ Deno.serve(async () => {
         term: chosen.keyword,
         score: chosen.popularityScore,
         region: "US",
-        metadata: {
-          title: chosen.title,
-          url: chosen.url ?? null,
-          category: chosen.category,
-          external_id: chosen.id,
-          short_context: chosen.shortContext,
-        },
+        metadata: { title: chosen.title, url: chosen.url ?? null, category: chosen.category, external_id: chosen.id, short_context: chosen.shortContext },
         fetched_at: chosen.detectedAt,
       })
       .select("id")
@@ -95,7 +85,6 @@ Deno.serve(async () => {
     if (trendErr) throw new Error(`trend insert: ${trendErr.message}`);
     const trendId = trendRow.id as string;
 
-    // Best-effort: store the rest of the batch for the agent console / history.
     const others = trends.filter((t) => t.id !== chosen.id).slice(0, 9);
     if (others.length > 0) {
       await admin.from("trends").insert(
@@ -125,9 +114,9 @@ Deno.serve(async () => {
       output: { chosen: { keyword: chosen.keyword, source: chosen.source, score: chosen.popularityScore } },
     });
 
-    // 2) Copy Crafter
+    // 2) Copy Crafter — one shared theme for the whole drop.
     const copyStart = Date.now();
-    const copy = craftCopy(chosen);
+    const copy = craftDropCopy(chosen);
     await admin.from("generation_runs").update({ status: "copy_crafter" }).eq("id", runId);
     await admin.from("agent_logs").insert({
       generation_run_id: runId,
@@ -137,75 +126,89 @@ Deno.serve(async () => {
       duration_ms: Date.now() - copyStart,
     });
 
-    // 3) Pixel Forge
+    // 3) Pixel Forge — one SVG per item; upload all; build product rows.
     const forgeStart = Date.now();
-    const baseSlug = slugify(chosen.keyword);
-    const slug = `${baseSlug}-${Date.now().toString(36).slice(-4)}`;
-    const forged = forgePixelArt(chosen, copy, slug);
     await admin.from("generation_runs").update({ status: "pixel_forge" }).eq("id", runId);
+    const base = slugify(chosen.keyword);
+    const suffix = Date.now().toString(36).slice(-4);
 
-    const bytes = new TextEncoder().encode(forged.svg);
-    const { error: upErr } = await admin.storage
-      .from(BUCKET)
-      .upload(forged.storagePath, bytes, { contentType: "image/svg+xml", upsert: true });
-    if (upErr) throw new Error(`storage upload: ${upErr.message}`);
-    const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(forged.storagePath);
-    const imageUrl = pub.publicUrl;
+    const rows: Record<string, unknown>[] = [];
+    const images: string[] = [];
+    for (const item of ITEMS) {
+      const slug = `${base}-${item.type}-${suffix}`;
+      const forged = forgePixelArt(chosen, copy.slogan, item.type, slug);
+      const bytes = new TextEncoder().encode(forged.svg);
+      const { error: upErr } = await admin.storage
+        .from(BUCKET)
+        .upload(forged.storagePath, bytes, { contentType: "image/svg+xml", upsert: true });
+      if (upErr) throw new Error(`storage upload (${item.type}): ${upErr.message}`);
+      const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(forged.storagePath);
+      images.push(pub.publicUrl);
+      rows.push({
+        generation_run_id: runId,
+        trend_id: trendId,
+        slug,
+        name: `${copy.theme} ${item.label}`,
+        title: `${copy.theme} ${item.label}`,
+        slogan: copy.slogan,
+        description: copy.description,
+        product_type: item.type,
+        category: item.type,
+        image_url: pub.publicUrl,
+        image_storage_path: forged.storagePath,
+        pixel_palette: forged.palette,
+        price_cents: item.priceCents,
+        price: Number((item.priceCents / 100).toFixed(2)),
+        currency: "USD",
+        status: "live",
+        featured: item.type === "tshirt",
+        published_at: new Date().toISOString(),
+        release_time: new Date().toISOString(),
+      });
+    }
+
+    const { data: inserted, error: prodErr } = await admin.from("products").insert(rows).select("id, slug");
+    if (prodErr) throw new Error(`product insert: ${prodErr.message}`);
 
     await admin.from("agent_logs").insert({
       generation_run_id: runId,
       agent_name: "pixel_forge",
-      input: { slogan: copy.slogan, productType: copy.productType },
-      output: { image_url: imageUrl, palette: forged.palette },
+      input: { items: ITEMS.map((i) => i.type) },
+      output: { images },
       duration_ms: Date.now() - forgeStart,
     });
 
-    // 4) Publish the drop (storefront reads these columns)
-    const { data: product, error: prodErr } = await admin
-      .from("products")
-      .insert({
-        generation_run_id: runId,
-        trend_id: trendId,
-        slug,
-        name: copy.name,
-        title: copy.name,
-        slogan: copy.slogan,
-        description: copy.description,
-        product_type: copy.productType,
-        category: copy.productType,
-        image_url: imageUrl,
-        image_storage_path: forged.storagePath,
-        pixel_palette: forged.palette,
-        price_cents: copy.priceCents,
-        price: Number((copy.priceCents / 100).toFixed(2)),
-        currency: "USD",
-        status: "live",
-        featured: chosen.popularityScore >= 85,
-        published_at: new Date().toISOString(),
-        release_time: new Date().toISOString(),
-      })
-      .select("id, slug")
-      .single();
-    if (prodErr) throw new Error(`product insert: ${prodErr.message}`);
+    // 4) Evict the previous drop — delete its products + Storage images (best effort).
+    let evicted = 0;
+    try {
+      const { data: olds } = await admin
+        .from("products")
+        .select("id, image_storage_path")
+        .or(`generation_run_id.is.null,generation_run_id.neq.${runId}`);
+      const oldRows = olds ?? [];
+      const paths = oldRows.map((o: { image_storage_path: string | null }) => o.image_storage_path).filter(Boolean) as string[];
+      if (paths.length > 0) await admin.storage.from(BUCKET).remove(paths);
+      const ids = oldRows.map((o: { id: string }) => o.id);
+      if (ids.length > 0) {
+        await admin.from("products").delete().in("id", ids);
+        evicted = ids.length;
+      }
+    } catch (evErr) {
+      console.error("[run-pipeline] eviction warning:", evErr instanceof Error ? evErr.message : evErr);
+    }
 
-    await admin
-      .from("generation_runs")
-      .update({ status: "published", completed_at: new Date().toISOString() })
-      .eq("id", runId);
+    await admin.from("generation_runs").update({ status: "published", completed_at: new Date().toISOString() }).eq("id", runId);
     await admin.from("shop_config").update({ last_run_at: new Date().toISOString() }).eq("id", 1);
 
     return json({
       ok: true,
-      drop: { id: product.id, slug: product.slug, name: copy.name, trend: chosen.keyword, image_url: imageUrl },
+      drop: { trend: chosen.keyword, theme: copy.theme, items: (inserted ?? []).map((p: { slug: string }) => p.slug), evicted },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[run-pipeline] failed:", message);
     if (runId) {
-      await admin
-        .from("generation_runs")
-        .update({ status: "failed", error_message: message, completed_at: new Date().toISOString() })
-        .eq("id", runId);
+      await admin.from("generation_runs").update({ status: "failed", error_message: message, completed_at: new Date().toISOString() }).eq("id", runId);
     }
     return json({ ok: false, error: message }, 500);
   }
