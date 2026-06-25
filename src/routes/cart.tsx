@@ -9,11 +9,25 @@ export const Route = createFileRoute("/cart")({
 });
 
 function CartPage() {
-  const { items, updateQty, remove, subtotal } = useCart();
+  const { items, updateQty, remove, subtotal, dropExpiredNotice, dismissDropExpiredNotice } = useCart();
 
   return (
     <section className="mx-auto max-w-7xl px-6 pt-16 pb-24 md:pt-24">
       <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Your Bag</h1>
+
+      {dropExpiredNotice && (
+        <div className="mt-6 flex items-start justify-between gap-4 rounded-2xl border border-border bg-surface-muted/60 px-5 py-4 text-sm">
+          <p>This drop ended — we removed items from your bag that are no longer available.</p>
+          <button
+            type="button"
+            onClick={dismissDropExpiredNotice}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {items.length === 0 ? (
         <div className="mt-12 rounded-3xl bg-surface-muted/60 p-12 text-center">

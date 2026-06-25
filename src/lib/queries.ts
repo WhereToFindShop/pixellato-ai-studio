@@ -1,35 +1,51 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Product, ProductVariant } from "@/lib/products";
 import { useEffect } from "react";
 
+async function fetchProducts(): Promise<Product[]> {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Product[];
+}
+
+let productsRealtimeChannel: RealtimeChannel | null = null;
+let productsRealtimeSubscribers = 0;
+
+/** One shared channel — multiple useProducts() callers must not each subscribe(). */
+function acquireProductsRealtime(onChange: () => void) {
+  productsRealtimeSubscribers += 1;
+  if (!productsRealtimeChannel) {
+    productsRealtimeChannel = supabase
+      .channel("products-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, onChange)
+      .subscribe();
+  }
+  return () => {
+    productsRealtimeSubscribers -= 1;
+    if (productsRealtimeSubscribers <= 0 && productsRealtimeChannel) {
+      supabase.removeChannel(productsRealtimeChannel);
+      productsRealtimeChannel = null;
+    }
+  };
+}
+
 export function useProducts() {
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["products"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as Product[];
-    },
+    queryFn: fetchProducts,
   });
 
-  // Realtime: refetch when any product changes (e.g. release_time crosses)
   useEffect(() => {
-    const channel = supabase
-      .channel("products-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "products" },
-        () => query.refetch(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [query]);
+    return acquireProductsRealtime(() => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    });
+  }, [queryClient]);
 
   return query;
 }
