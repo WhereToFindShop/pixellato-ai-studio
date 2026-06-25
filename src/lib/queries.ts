@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Product, ProductVariant } from "@/lib/products";
 import { useEffect } from "react";
@@ -13,41 +12,30 @@ async function fetchProducts(): Promise<Product[]> {
   return (data ?? []) as Product[];
 }
 
-let productsRealtimeChannel: RealtimeChannel | null = null;
-let productsRealtimeSubscribers = 0;
+/** Mount once at app root — avoids duplicate Supabase channels when queries.ts is code-split. */
+export function ProductsRealtimeSync() {
+  const queryClient = useQueryClient();
 
-/** One shared channel — multiple useProducts() callers must not each subscribe(). */
-function acquireProductsRealtime(onChange: () => void) {
-  productsRealtimeSubscribers += 1;
-  if (!productsRealtimeChannel) {
-    productsRealtimeChannel = supabase
+  useEffect(() => {
+    const channel = supabase
       .channel("products-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, onChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["products"] });
+      })
       .subscribe();
-  }
-  return () => {
-    productsRealtimeSubscribers -= 1;
-    if (productsRealtimeSubscribers <= 0 && productsRealtimeChannel) {
-      supabase.removeChannel(productsRealtimeChannel);
-      productsRealtimeChannel = null;
-    }
-  };
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  return null;
 }
 
 export function useProducts() {
-  const queryClient = useQueryClient();
-  const query = useQuery({
+  return useQuery({
     queryKey: ["products"],
     queryFn: fetchProducts,
   });
-
-  useEffect(() => {
-    return acquireProductsRealtime(() => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-    });
-  }, [queryClient]);
-
-  return query;
 }
 
 export type ShopConfig = {

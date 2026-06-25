@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CartProvider } from "@/lib/cart";
+import { ProductsRealtimeSync } from "@/lib/queries";
 import { Nav } from "@/components/store/Nav";
 import { Footer } from "@/components/store/Footer";
 
@@ -123,6 +124,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ProductsRealtimeSync />
       <CartProvider>
         <div className="flex min-h-screen flex-col bg-background">
           <Nav />
