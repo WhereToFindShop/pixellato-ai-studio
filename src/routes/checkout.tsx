@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useCart } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
 import { supabase } from "@/integrations/supabase/client";
+import { createPaypalOrder, capturePaypalOrder } from "@/lib/paypal";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({ meta: [{ title: "Checkout — Pixellato" }] }),
@@ -24,13 +26,16 @@ function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> 
 function Checkout() {
   const { items, subtotal, clear } = useCart();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     email: "", full_name: "", shipping_address: "", city: "", postal_code: "", country: "",
   });
 
   const update = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const formValid = Object.values(form).every((v) => v.trim().length > 0);
+  const paidTotal = useRef(0);
 
   if (items.length === 0) {
     return (
@@ -41,25 +46,14 @@ function Checkout() {
     );
   }
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  // Record the paid order in Supabase after PayPal capture succeeds.
+  const placeOrder = async (total: number) => {
     const { data: order, error } = await supabase
       .from("orders")
-      .insert({
-        ...form,
-        subtotal,
-        total: subtotal,
-        status: "pending",
-      })
+      .insert({ ...form, subtotal: total, total, status: "paid" })
       .select()
       .single();
-
-    if (error || !order) {
-      setLoading(false);
-      alert("Could not place order. Please try again.");
-      return;
-    }
+    if (error || !order) throw new Error("Could not save order");
 
     const { error: itemsError } = await supabase.from("order_items").insert(
       items.map((i) => ({
@@ -71,12 +65,8 @@ function Checkout() {
         unit_price: i.price,
       })),
     );
+    if (itemsError) throw new Error("Could not save order items");
 
-    setLoading(false);
-    if (itemsError) {
-      alert("Could not save order items.");
-      return;
-    }
     clear();
     navigate({ to: "/order/$id", params: { id: order.id } });
   };
@@ -84,7 +74,7 @@ function Checkout() {
   return (
     <section className="mx-auto max-w-6xl px-6 pt-16 pb-24 md:pt-24">
       <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Checkout</h1>
-      <form onSubmit={onSubmit} className="mt-12 grid gap-10 lg:grid-cols-[1.4fr_1fr]">
+      <div className="mt-12 grid gap-10 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-10">
           <div>
             <h2 className="text-lg font-medium">Contact</h2>
@@ -106,9 +96,9 @@ function Checkout() {
           </div>
           <div>
             <h2 className="text-lg font-medium">Payment</h2>
-            <div className="mt-6 rounded-2xl border border-dashed border-border bg-surface-muted/40 p-6 text-sm text-muted-foreground">
-              Payment is a placeholder in this preview. Your order will be recorded as "pending".
-            </div>
+            <p className="mt-6 text-sm text-muted-foreground">
+              Pay securely with PayPal. Fill in your details above to enable payment.
+            </p>
           </div>
         </div>
 
@@ -126,15 +116,43 @@ function Checkout() {
             <span className="font-medium">Total</span>
             <span className="text-lg font-semibold tabular-nums">{formatPrice(subtotal)}</span>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background disabled:opacity-60"
-          >
-            {loading ? "Placing order…" : "Place Order"}
-          </button>
+          {!formValid && (
+            <p className="mt-6 text-xs text-muted-foreground">
+              Complete contact & shipping details to pay.
+            </p>
+          )}
+          <div className="mt-6" style={{ colorScheme: "light" }}>
+            <PayPalScriptProvider
+              options={{ clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID, currency: "USD" }}
+            >
+              <PayPalButtons
+                style={{ layout: "vertical" }}
+                disabled={!formValid}
+                forceReRender={[subtotal, formValid]}
+                createOrder={async () => {
+                  setError(null);
+                  const r = await createPaypalOrder({
+                    data: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+                  });
+                  paidTotal.current = r.total;
+                  return r.id;
+                }}
+                onApprove={async (data) => {
+                  try {
+                    const cap = await capturePaypalOrder({ data: data.orderID });
+                    if (cap.status !== "COMPLETED") throw new Error("Payment not completed");
+                    await placeOrder(paidTotal.current);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Payment failed");
+                  }
+                }}
+                onError={() => setError("PayPal error. Please try again.")}
+              />
+            </PayPalScriptProvider>
+          </div>
+          {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
         </aside>
-      </form>
+      </div>
     </section>
   );
 }
