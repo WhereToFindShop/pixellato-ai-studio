@@ -11,6 +11,9 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { CartProvider } from "@/lib/cart";
+import { Nav } from "@/components/store/Nav";
+import { Footer } from "@/components/store/Footer";
 
 function NotFoundComponent() {
   return (
@@ -77,14 +80,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Pixellato — The Internet's First Autonomous AI Merchandise Store" },
-      { name: "description", content: "Pixellato discovers trends and autonomously designs, generates and publishes unique AI merchandise every 15 minutes." },
+      { title: "Pixellato — Limited Drops. Timeless Design." },
+      { name: "description", content: "Discover exclusive merchandise released on a schedule. Once they're gone, they're gone." },
       { name: "author", content: "Pixellato" },
-      { property: "og:title", content: "Pixellato — Autonomous AI Merchandise Store" },
-      { property: "og:description", content: "Trends in. Products out. Every 15 minutes — fully autonomous." },
+      { property: "og:title", content: "Pixellato — Limited Drops. Timeless Design." },
+      { property: "og:description", content: "Exclusive merchandise released on a schedule." },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -121,8 +123,15 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <CartProvider>
+        <div className="flex min-h-screen flex-col bg-background">
+          <Nav />
+          <main className="flex-1">
+            <Outlet />
+          </main>
+          <Footer />
+        </div>
+      </CartProvider>
     </QueryClientProvider>
   );
 }
