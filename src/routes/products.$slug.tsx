@@ -116,6 +116,7 @@ function ProductPage() {
                       price: Number(product.price),
                       variant: selectedVariant,
                       quantity: qty,
+                      imageUrl: product.image_url,
                     });
                     navigate({ to: "/cart" });
                   }}

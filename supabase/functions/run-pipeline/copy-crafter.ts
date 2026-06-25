@@ -1,6 +1,6 @@
 // Copy Crafter (Agent 2) — turns a Trend into one drop's shared copy.
 // Deterministic, key-free deadpan humor selected by a seeded PRNG. The four
-// items (tee/mug/bottle/hat) all share this theme so they read as one drop.
+// items (tee/tote/mug/cap) all share this theme so they read as one drop.
 
 import type { DropCopy, Trend } from "./types.ts";
 
@@ -31,7 +31,7 @@ const DESC_OPENERS = [
 ];
 
 const DESC_CLOSERS = [
-  "A tee, a mug, a bottle and a cap. Gone when the next trend hits.",
+  "A tee, a tote, a mug and a cap. Gone when the next trend hits.",
   "Four pieces, one trend. Wear it ironically or don't — not your manager.",
   "Self-aware merch for self-aware people. Limited drop.",
   "Made by robots, judged by humans. Here until the next drop.",

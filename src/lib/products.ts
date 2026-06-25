@@ -1,9 +1,4 @@
-import tee from "@/assets/p-tee.jpg";
-import hoodie from "@/assets/p-hoodie.jpg";
-import mug from "@/assets/p-mug.jpg";
-import cap from "@/assets/p-cap.jpg";
-import overshirt from "@/assets/p-overshirt.jpg";
-import tote from "@/assets/p-tote.jpg";
+import hero from "@/assets/hero.jpg";
 
 export type ProductStatus = "live" | "upcoming" | "sold_out";
 
@@ -27,17 +22,9 @@ export type ProductVariant = {
   stock: number;
 };
 
-const slugImages: Record<string, string> = {
-  "essential-tee-grey": tee,
-  "archive-hoodie": hoodie,
-  "porcelain-mug": mug,
-  "field-cap-cream": cap,
-  "linen-overshirt-sand": overshirt,
-  "canvas-tote-black": tote,
-};
-
-export function productImage(slug: string, fallback?: string | null) {
-  return slugImages[slug] ?? fallback ?? tee;
+/** Prefer the live Supabase image URL; fall back to the static hero photo. */
+export function productImage(_slug: string, imageUrl?: string | null) {
+  return imageUrl ?? hero;
 }
 
 export function formatPrice(value: number) {

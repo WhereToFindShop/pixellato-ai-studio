@@ -28,7 +28,7 @@ function CartPage() {
             {items.map((i) => (
               <li key={i.productId + i.variant} className="flex gap-6 py-6">
                 <div className="aspect-square w-28 shrink-0 overflow-hidden rounded-xl bg-surface-muted sm:w-32">
-                  <img src={productImage(i.slug)} alt={i.title} className="h-full w-full object-cover" />
+                  <img src={productImage(i.slug, i.imageUrl)} alt={i.title} className="h-full w-full object-cover" />
                 </div>
                 <div className="flex flex-1 flex-col justify-between">
                   <div className="flex items-start justify-between gap-4">
