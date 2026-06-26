@@ -36,3 +36,4 @@ dist-ssr
 supabase/.temp/
 supabase/.branches/
 .vercel
+.env*
